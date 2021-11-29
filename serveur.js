@@ -3,6 +3,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import { Server } from 'socket.io'
+import { io as ioClient } from 'socket.io-client'
 
 // Analyse des paramètres
 const argv = yargs(hideBin(process.argv))
@@ -33,9 +34,13 @@ function initSocket (socket) {
 
   socket.on('set', function (field, value, callback) {
     if (field in db) { // Si la clef est dans la base de donnée
-      const error = new Error(`set error : Field ${field} exists.`)
-      console.info(error)
-      callback(error.message)
+      if(value === db[field]?.value){ //si la valeur est la meme que precedemment
+        callback()
+      } else {
+        const error = new Error(`set error : Field ${field} exists.`)
+        console.info(error)
+        callback(error.message)
+      }
     } else {
       console.info(`set ${field} : ${value}`)
       db[field] = {
@@ -46,9 +51,29 @@ function initSocket (socket) {
     }
   })
 
-  socket.on('keys', function (callback) {
+    socket.on('keys', function (callback) {
     console.info('keys')
     callback(undefined, Object.keys(db)) // Object.keys() extrait la liste des clefs d'un object et les renvoie sous forme d'un tableau.
+  })
+
+  socket.on('peers', function (callback) {
+    console.info('peers')
+    callback(undefined, neighbors) 
+  })
+
+  socket.on('addPeer', function (port, callback) {
+    console.info('addPeer')
+    socket = ioClient(`http://localhost:${port}`, {
+      path: '/byc'
+    });
+    socket.on('connect')
+    callback() 
+  })
+
+  socket.on('auth', function (maVariable, callback) {
+    console.info('auth')
+    neighbors.push(maVariable)
+    callback() 
   })
 }
 
