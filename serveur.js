@@ -21,9 +21,26 @@ const db = Object.create(null)
 const neighbors = []
 const sockets = []
 
+function sync(socket) {
+  socket.emit('keys', (error, keys) => {
+    if (error) {
+        console.error(error)
+      } else {
+        console.info(keys.join(','))
+      }
+  })
+  //si une cle n'est pas dans notre tableau de clés de la socket, on l'ajoute
+  /*
+  keys.forEach((element, index)=> {
+      if (element) {
+
+      }
+  })*/
+}
 
 // Initialisation d'une socket
 function initSocket (socket) {
+
   socket.on('get', function (field, callback) {
     if (field in db) {
       console.info(`get ${field}: ${db[field]?.value}`)
@@ -50,6 +67,18 @@ function initSocket (socket) {
         value,
         date: Date.now() // on sauvegarde la date de création
       }
+
+      sockets.forEach((socket, index) => {
+        socket.emit('set', field, value, (error) => {
+          if (error) {
+            console.error(error)
+          } else {
+            console.info('OK')
+          }
+        })
+        sockets.push(socket)
+      })
+
       callback()
     }
   })
@@ -64,32 +93,67 @@ function initSocket (socket) {
     callback(undefined, neighbors)
   })
 
+
+
   socket.on('addPeer', function (port, callback) {
     console.info('addPeer')
     socket = ioClient(`http://localhost:${port}`, {
       path: '/byc'
     });
-    neighbors.push(port)
+
+    var inNeighbors = 0
+    if (neighbors.length === 0) {
+      neighbors.push(port)
+    } else {
+      neighbors.forEach((element, index) => {
+        if (port === element){
+          console.log("neighbor already declared")
+          inNeighbors = 1
+        } 
+      })
+      if (inNeighbors == 0) {
+        neighbors.push(port)
+      }
+    }
+    
+
     sockets.push(socket)
     socket.on('connect', () => {
-      socket.emit('auth', argv.port , (error) => {
+      socket.emit('auth', argv.port, (error) => {
         if (error) {
           console.error(error)
         } else {
           console.info('OK')
         }
       })
+      
     })
+    initSocket(socket)
     callback()
   })
 
-  socket.on('auth', function (maVariable, callback) {
+  socket.on('auth', function (port, callback) {
     console.info('auth')
-    neighbors.push(maVariable)
-    //sockets.push(socket)
+    var inNeighbors = 0
+    if (neighbors.length === 0) {
+      neighbors.push(port)
+    } else {
+      neighbors.forEach((element, index) => {
+        if (port === element){
+          console.log("neighbor already declared")
+          inNeighbors = 1
+        } 
+      })
+      if (inNeighbors == 0) {
+        neighbors.push(port)
+      }
+    }
+    sockets.push(socket)
     callback()
   })
 }
+
+
 
 // Création du serveur
 const io = new Server(argv.port, {
