@@ -18,6 +18,9 @@ const argv = yargs(hideBin(process.argv))
 
 // Création de la DB
 const db = Object.create(null)
+const neighbors = []
+const sockets = []
+
 
 // Initialisation d'une socket
 function initSocket (socket) {
@@ -58,7 +61,7 @@ function initSocket (socket) {
 
   socket.on('peers', function (callback) {
     console.info('peers')
-    callback(undefined, neighbors) 
+    callback(undefined, neighbors)
   })
 
   socket.on('addPeer', function (port, callback) {
@@ -66,14 +69,25 @@ function initSocket (socket) {
     socket = ioClient(`http://localhost:${port}`, {
       path: '/byc'
     });
-    socket.on('connect')
-    callback() 
+    neighbors.push(port)
+    sockets.push(socket)
+    socket.on('connect', () => {
+      socket.emit('auth', argv.port , (error) => {
+        if (error) {
+          console.error(error)
+        } else {
+          console.info('OK')
+        }
+      })
+    })
+    callback()
   })
 
   socket.on('auth', function (maVariable, callback) {
     console.info('auth')
     neighbors.push(maVariable)
-    callback() 
+    //sockets.push(socket)
+    callback()
   })
 }
 
@@ -90,3 +104,4 @@ io.on('connect', (socket) => {
   console.info('Nouvelle connexion')
   initSocket(socket)
 })
+
